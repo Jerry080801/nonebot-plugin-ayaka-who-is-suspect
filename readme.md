@@ -25,7 +25,7 @@
 修改nonebot2  `bot.py` 
 
 ```python
-nonebot.load_plugin("ayaka_who_is_suspect.py")
+nonebot.load_plugin("ayaka_who_is_suspect")
 ```
 
 ## 导入数据
