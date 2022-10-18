@@ -11,7 +11,7 @@ app.help = {
     "playing": "vote <at:qq号> 投票",
 }
 
-words_list = app.plugin_storage("data").load()
+words_list = app.plugin_storage("data", default=["test", "测试"]).load()
 
 
 class Player:
@@ -257,7 +257,7 @@ async def vote():
     if not app.args or app.args[0].type != "at":
         await app.send("没有提供参数，请在vote命令后艾特你要投的人，不可以复制，bot无法识别")
         return
-    
+
     try:
         uid = int(app.args[0].data["qq"])
     except:
