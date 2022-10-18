@@ -11,7 +11,7 @@ app.help = {
     "playing": "vote <at:qq号> 投票",
 }
 
-words_list = app.plugin_storage("data", default=["test", "测试"]).load()
+words_list = app.plugin_storage("data", default=[["test", "测试"]]).load()
 
 
 class Player:
