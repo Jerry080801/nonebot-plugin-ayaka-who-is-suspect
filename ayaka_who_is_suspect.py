@@ -10,6 +10,7 @@ init_help = '''
 参与玩家的群名片不要重名，否则会产生非预期的错误=_=||
 卧底只有一个
 '''.strip()
+
 room_help = '''
 房间已建立，正在等待玩家加入...
 - join/加入
@@ -18,6 +19,7 @@ room_help = '''
 - info/信息 展示房间信息
 - exit/退出 关闭游戏
 '''.strip()
+
 play_help = '''
 游戏正在进行中...
 - vote <at> 请at你要投票的对象，一旦投票无法更改
@@ -198,11 +200,11 @@ class Game:
 
     def kickout(self):
         info = self.vote_info + "\n"
-
         ps = self.no_out_players
+
+        # 取最高者
         ps.sort(key=lambda p: p.vote_cnt, reverse=True)
         vote_cnt = ps[0].vote_cnt
-
         for i, p in enumerate(ps):
             if p.vote_cnt < vote_cnt:
                 ps = ps[:i]
@@ -221,6 +223,10 @@ class Game:
             return True, info
 
         # 平票
+        # 清除in_revote
+        for p in self.no_out_players:
+            p.in_revote = False
+        # 设置in_revote
         for p in ps:
             p.in_revote = True
 
