@@ -37,4 +37,5 @@ nonebot.load_plugin("ayaka_who_is_suspect")
 ## 更新记录
 
 0.0.4 修复了平局后投票，没有限制投票范围的bug
+
 0.0.5 修复了多次平局后投票，限制投票范围错误的bug
