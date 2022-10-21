@@ -1,4 +1,4 @@
-# 谁是卧底
+# 谁是卧底 0.0.4
 
 基于ayaka开发的 谁是卧底 小游戏
 
@@ -34,3 +34,6 @@ nonebot.load_plugin("ayaka_who_is_suspect")
 
 之后运行nonebot即可
 
+## 更新记录
+
+0.0.4 修复了平局后投票，没有限制投票范围的bug

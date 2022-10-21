@@ -3,15 +3,36 @@
 '''
 from random import choice, randint
 from typing import List
-from ayaka import AyakaApp
+from ayaka import AyakaApp, MessageSegment
+
+init_help = '''
+至少4人游玩，游玩前请加bot好友，否则无法通过私聊告知关键词
+参与玩家的群名片不要重名，否则会产生非预期的错误=_=||
+卧底只有一个
+'''.strip()
+room_help = '''
+房间已建立，正在等待玩家加入...
+- join/加入
+- leave/离开
+- start/begin/开始
+- info/信息 展示房间信息
+- exit/退出 关闭游戏
+'''.strip()
+play_help = '''
+游戏正在进行中...
+- vote <at> 请at你要投票的对象，一旦投票无法更改
+- info/信息 展示投票情况
+- force_exit 强制关闭游戏，有急事可用
+'''.strip()
 
 app = AyakaApp("谁是卧底")
 app.help = {
-    "init": "join 加入房间\nleave 离开房间\nbegin 开始游戏",
-    "playing": "vote <at:qq号> 投票",
+    "init": init_help,
+    "room": room_help,
+    "play": play_help
 }
 
-words_list = app.plugin_storage("data", default=[["test", "测试"]]).load()
+words_list = app.plugin_storage("data", default=[["Test", "test"]]).load()
 
 
 class Player:
@@ -19,278 +40,377 @@ class Player:
         self.uid = uid
         self.name = name
         self.word = ""
-        # 投给了谁
-        self.vote_uid = 0
-        # 得票数
+
         self.vote_cnt = 0
-        # 是否进入重投范围
+        self.vote_to: Player = None
         self.in_revote = False
-        # 是否已出局
-        self.failed = False
+        self.is_suspect = False
+        self.out = False
 
     def __str__(self):
-        if self.failed:
-            return f"[{self.name}] 已出局"
-        return f"[{self.name}] {'已投票' if self.voted else '未投票'} 得票数：{self.vote_cnt}"
+        return f"[{self.name}]"
+
+    def clear(self):
+        self.vote_cnt = 0
+        self.vote_to = None
+        self.in_revote = False
+        self.is_suspect = False
+        self.out = False
+
+    def set_normal(self, word: str):
+        self.clear()
+        self.word = word
+
+    def set_suspect(self, word: str):
+        self.clear()
+        self.word = word
+        self.is_suspect = True
+
+    def clear_vote(self, preserve_revote=False):
+        self.vote_to = None
+        self.vote_cnt = 0
+        if not preserve_revote:
+            self.in_revote = False
 
     @property
-    def voted(self):
-        return self.vote_uid != 0
+    def vote_info(self):
+        info = f"[{self.name}] "
+        if self.out:
+            info += "已出局 "
+            return info
 
-    def vote(self, p: "Player"):
-        if not self.voted:
-            self.vote_uid = p.uid
-            p.vote_cnt += 1
-            return p.name
+        if not self.vote_to:
+            info += "未投票 "
 
-    def clear_vote(self):
-        self.vote_uid = 0
-        self.vote_cnt = 0
-        self.in_revote = False
+        info += f"得票数：{self.vote_cnt} "
+
+        if self.in_revote:
+            info += "(上一轮平票)"
+
+        return info
 
 
 class Game:
     def __init__(self) -> None:
-        self.player_list: List[Player] = []
-
-    def build(self):
-        '''生成一套题'''
-        words: list = choice(words_list)
-        # 有可能翻转
-        if randint(0, 1):
-            words.reverse()
-        self.words = words
-
-        # 提供词汇
-        for p in self.player_list:
-            p.word = self.words[0]
-
-        # 生成内鬼
-        i = randint(0, self.player_cnt-1)
-        self.suspect = self.player_list[i]
-
-        # 提供内鬼词汇
-        self.suspect.word = self.words[1]
+        self.players: List[Player] = []
 
     @property
     def player_cnt(self):
-        return len(self.player_list)
+        return len(self.players)
 
     @property
-    def left_player_list(self):
-        ps = [p for p in self.player_list if not p.failed]
-        return ps
+    def no_out_players(self):
+        return [p for p in self.players if not p.out]
 
     @property
-    def left_player_cnt(self):
-        return len(self.left_player_list)
+    def in_revote_players(self):
+        return [p for p in self.no_out_players if p.in_revote]
 
     @property
-    def all_info(self):
-        normal = []
-        for p in self.player_list:
-            if p != self.suspect:
-                normal.append(p)
-        text = f"普通人的关键词：{self.words[0]}\n"
-        for p in normal:
-            text += f"[{p.name}] "
-        text += f"是普通人！\n卧底的关键词：{self.words[1]}\n[{self.suspect.name}] 是卧底！\n"
-        text += f"场上最终剩余人数：{self.left_player_cnt}人！"
-        return text
+    def in_revote(self):
+        return len(self.in_revote_players) > 0
 
     @property
-    def all_voted(self):
-        return all(p.voted for p in self.left_player_list)
+    def voted_end(self):
+        if all(p.vote_to for p in self.no_out_players):
+            return True
+
+        # 或者有人已获得半数以上的票数
+        cnt = int(len(self.no_out_players)/2)
+        for p in self.no_out_players:
+            if p.vote_cnt > cnt:
+                return True
 
     @property
-    def revote_list(self):
-        '''重投列表'''
-        ps = [p for p in self.player_list if p.in_revote]
-        return ps
+    def vote_info(self):
+        items = ["投票情况："]
+        items.extend(p.vote_info for p in self.players)
+        return "\n".join(items)
 
     @property
-    def is_revoting(self):
-        return len(self.revote_list) > 0
+    def room_info(self):
+        items = ["房间成员："]
+        items.extend(str(p) for p in self.players)
+        return "\n".join(items)
 
     def get_player(self, uid: int):
-        for p in self.player_list:
-            if uid == p.uid:
+        for p in self.players:
+            if p.uid == uid:
                 return p
 
     def join(self, uid: int, name: str):
-        '''加入'''
-        p = self.get_player(uid)
-        if not p:
-            self.player_list.append(Player(uid, name))
-            return True
-
-    def leave(self, uid: int):
-        '''退出'''
         p = self.get_player(uid)
         if p:
-            self.player_list.remove(p)
-            return True
+            return False, f"{p} 已在房间中"
+        p = Player(uid, name)
+        self.players.append(p)
+        return True, f"{p} 加入房间"
 
-    def begin(self):
-        '''开始一轮游戏'''
-        if self.player_cnt >= 4:
-            self.build()
-            return True
-
-    def vote(self, voter_uid: int, uid: int):
-        '''投票'''
-        voter = self.get_player(voter_uid)
+    def leave(self, uid: int):
         p = self.get_player(uid)
-        if not voter or not p:
-            return
+        if not p:
+            return False, f"({uid}) 不在房间中"
+        self.players.remove(p)
+        return True, f"{p} 离开房间"
 
-        # 普通投票
-        if not self.is_revoting:
-            return voter.vote(p)
+    def start(self, uid: int):
+        p = self.get_player(uid)
+        if not p:
+            return False, f"({uid}) 没有加入游戏"
 
-        # 重投只能投给上一轮平票的人
-        if p.in_revote:
-            return voter.vote(p)
+        if self.player_cnt < 4:
+            return False, "至少需要4人才能开始游戏"
 
-    def clear_last_vote(self):
-        '''清空上一次投票'''
-        for p in self.player_list:
-            p.clear_vote()
+        normal, fake = choice(words_list)
 
-    def kick_out(self):
-        '''踢出得票最多的人，如果平票则针对平票人进行无限轮投票，直到一人被踢出'''
-        # 找出最高的玩家
-        ps = [p for p in self.left_player_list]
+        # 有可能翻转
+        if randint(0, 1):
+            normal, fake = fake, normal
+
+        # 初始化状态
+        for p in self.players:
+            p.set_normal(normal)
+
+        i = randint(0, self.player_cnt - 1)
+        self.players[i].set_suspect(fake)
+
+        return True, "游戏开始"
+
+    def vote(self, uid: int, vote_to_uid: int):
+        p = self.get_player(uid)
+        if not p:
+            return False, f"({uid}) 没有加入游戏"
+
+        if p.vote_to:
+            return False, f"{p} 已经投票过了"
+
+        vote_to = self.get_player(vote_to_uid)
+        if not vote_to:
+            return False, f"({vote_to_uid}) 没有加入游戏"
+
+        if self.in_revote:
+            if not vote_to.in_revote:
+                return False, "只能投给上一轮平票的人"
+
+        p.vote_to = vote_to
+        vote_to.vote_cnt += 1
+        return True, f"{p} 投票给了 {vote_to}"
+
+    def kickout(self):
+        info = self.vote_info + "\n"
+
+        ps = self.no_out_players
         ps.sort(key=lambda p: p.vote_cnt, reverse=True)
+        vote_cnt = ps[0].vote_cnt
 
-        max_vote = ps[0].vote_cnt
-        i = 0
-        for p in ps:
-            if p.vote_cnt < max_vote:
+        for i, p in enumerate(ps):
+            if p.vote_cnt < vote_cnt:
+                ps = ps[:i]
                 break
-            i += 1
 
-        ps = ps[:i]
-
-        # 只有一个
+        # 只票出一人，正常结算
         if len(ps) == 1:
             p = ps[0]
-            p.failed = True
-            return p.name
+            p.out = True
+            info += f"{p} 出局"
 
-        # 有多个，进入重投
+            # 清理本轮投票
+            for p in self.no_out_players:
+                p.clear_vote()
+
+            return True, info
+
+        # 平票
         for p in ps:
             p.in_revote = True
 
-    @property
-    def people_win(self):
-        return self.suspect.failed
+        info += "平局\n"
+        info += " ".join(str(p) for p in ps) + " 请发言申辩\n"
+        info += "所有玩家可再次投票，投出其中一人"
 
-    @property
-    def suspect_win(self):
-        return not self.suspect.failed and self.left_player_cnt <= 2
+        # 清理本轮投票
+        for p in self.no_out_players:
+            p.clear_vote(preserve_revote=True)
+
+        return False, info
+
+    def check_end(self):
+        for p in self.players:
+            if p.is_suspect and p.out:
+                return True, "普通人赢了！"
+        if len(self.no_out_players) <= 2:
+            return True, "卧底赢了！"
+        return False, ""
+
+    def get_words(self):
+        ps = [p for p in self.players if not p.is_suspect]
+        word = ps[0].word
+
+        items = []
+        items.append(f"普通人的关键词： {word}")
+        items.append(" ".join(str(p) for p in ps) + " 是普通人！")
+
+        for p in self.players:
+            if p.is_suspect:
+                break
+
+        items.append(f"卧底的关键词： {p.word}")
+        items.append(f"{p} 是卧底！")
+        return "\n".join(items)
+
+
+async def get_uid(arg: MessageSegment):
+    users = await app.bot.get_group_member_list(group_id=app.group_id)
+
+    # at？
+    if arg.type == "at":
+        at = arg
+        try:
+            uid = int(at.data["qq"])
+        except:
+            return
+
+        for user in users:
+            if user["user_id"] == uid:
+                return user["user_id"]
+        return
+
+    # 名称？
+    name = str(arg)
+    if name.startswith("@"):
+        name = name[1:]
+
+    for user in users:
+        if user["card"] == name:
+            return user["user_id"]
+
+
+async def check_friend(uid: int):
+    users = await app.bot.get_friend_list()
+    for user in users:
+        if user["user_id"] == uid:
+            return True
 
 
 @app.on_command("谁是卧底")
 async def app_entrance():
-    await app.start()
+    if not await app.start():
+        return
+
+    await app.send(init_help)
+    app.set_state("room")
+    await app.send(room_help)
+
     app.cache.game = Game()
+    await join()
 
 
-@app.on_state_command(["join", "加入"])
+@app.on_state_command(["exit", "退出"], "room")
+async def exit_room():
+    await app.close()
+
+
+@app.on_state_command(["exit", "退出"], "play")
+async def exit_play():
+    await app.send("游戏已开始，你确定要终结游戏吗？请使用命令：强制退出")
+
+
+@app.on_state_command(["force_exit", "强制退出"], "play")
+async def app_force_exit():
+    await app.close()
+
+
+@app.on_state_command(["join", "加入"], "room")
 async def join():
-    uid = app.user_id
-    name = app.user_name
-
-    users = await app.bot.get_friend_list()
-    for user in users:
-        if user["user_id"] == uid:
-            break
-    else:
+    # 校验好友
+    if not await check_friend(app.user_id):
         await app.send("只有bot的好友才可以加入房间，因为游戏需要私聊关键词")
         return
 
     game: Game = app.cache.game
-    f = game.join(uid, name)
-    if f:
-        await app.send(f"[{name}] 加入了房间")
-    else:
-        await app.send(f"[{name}] 已经在房间里了")
+    f, info = game.join(app.user_id, app.user_name)
+    await app.send(info)
 
 
-@app.on_state_command(["leave", "离开"])
+@app.on_state_command(["leave", "离开"], "room")
 async def leave():
     game: Game = app.cache.game
-    f = game.leave(app.user_id)
-    if f:
-        await app.send(f"[{app.user_name}] 离开了房间")
-    else:
-        await app.send(f"[{app.user_name}] 不在房间里")
+    f, info = game.leave(app.user_id)
+    await app.send(info)
+
+    if f and game.player_cnt == 0:
+        await app.close()
 
 
-@app.on_state_command(["start", "开始", "begin"])
-async def begin():
+@app.on_state_command(["start", "begin", "开始"], "room")
+async def start():
     game: Game = app.cache.game
-    p = game.get_player(app.user_id)
-    if not p:
-        await app.send(f"[{app.user_name}] 不在房间里")
-        return
-    f = game.begin()
-    if f:
-        await app.send("谁是卧底开始！")
-    else:
-        await app.send("至少需要4人才能游玩")
+    f, info = game.start(app.user_id)
+    await app.send(info)
+
+    # 启动失败
+    if not f:
         return
 
-    app.set_state("playing")
-    for p in game.player_list:
+    app.set_state("play")
+    for p in game.players:
         await app.bot.send_private_msg(user_id=p.uid, message=p.word)
 
 
-@app.on_state_command(["exit", "退出", "quit"], "*")
-async def exit_app():
-    await app.close()
-
-
-@app.on_state_command(["vote", "投票"], "playing")
-async def vote():
-    if not app.args or app.args[0].type != "at":
-        await app.send("没有提供参数，请在vote命令后艾特你要投的人，不可以复制，bot无法识别")
-        return
-
-    try:
-        uid = int(app.args[0].data["qq"])
-    except:
-        await app.send("参数不对！不要at全体成员")
-        return
-
+@app.on_state_command(["info", "信息"], "room")
+async def room_info():
     game: Game = app.cache.game
-    name = game.vote(app.user_id, uid)
-    if not name:
+    await app.send(game.room_info)
+
+
+@app.on_state_command(["info", "信息"], "play")
+async def vote_info():
+    game: Game = app.cache.game
+    await app.send(game.vote_info)
+
+
+@app.on_state_command(["vote", "投票"], "play")
+async def vote():
+    game: Game = app.cache.game
+
+    # 验证参数
+    if not app.args:
+        await app.send("没有获取到有效参数")
         return
 
-    await app.send(f"[{app.user_name}] 投给了 [{name}]！")
-    info = "\n".join(str(p) for p in game.player_list)
+    vote_to_uid = await get_uid(app.args[0])
+    if not vote_to_uid:
+        await app.send("没有获取到有效参数")
+
+    # 投票
+    f, info = game.vote(app.user_id, vote_to_uid)
     await app.send(info)
 
-    if game.all_voted:
-        name = game.kick_out()
-        if name:
-            await app.send(f"[{name}] 得票最多！出局！")
-            if game.people_win:
-                await app.send("普通人赢了！")
-                await app.send(game.all_info)
-                await app.close()
-            elif game.suspect_win:
-                await app.send("卧底赢了！")
-                await app.send(game.all_info)
-                await app.close()
-            else:
-                text = " ".join(f"[{p.name}]" for p in game.left_player_list)
-                await app.send(f"场上剩余{game.left_player_cnt}人\n请 {text} 继续发言")
-            game.clear_last_vote()
-        else:
-            ps = game.revote_list
-            await app.send("出现了平局！")
-            await app.send(" ".join(f"[{p.name}]" for p in ps) + " 请继续发言！在他们发言结束后，所有未出局的玩家可再次在他们中投出一人！")
-            game.clear_last_vote()
+    # 投票失败
+    if not f:
+        return
+
+    # 投票是否结束
+    if not game.voted_end:
+        return
+
+    # 结算时公布投票结果
+    f, info = game.kickout()
+    await app.send(info)
+
+    # 出现平局
+    if not f:
+        return
+
+    # 成功踢出一人，判断游戏是否结束
+    f, info = game.check_end()
+    if not f:
+        return
+
+    # 展示结果
+    await app.send(game.get_words())
+    await app.send(info)
+
+    # 返回房间
+    app.set_state("room")
+    await app.send("已回到房间")
