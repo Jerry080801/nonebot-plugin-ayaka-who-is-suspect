@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nonebot_plugin_ayaka_who_is_suspect"
-version = "0.0.5"
+version = "0.0.6b"
 description = "谁是卧底"
 authors = ["Su <wxlxy316@163.com>"]
 license = "MIT"

@@ -68,11 +68,10 @@ class Player:
         self.word = word
         self.is_suspect = True
 
-    def clear_vote(self, preserve_revote=False):
+    def clear_vote(self):
         self.vote_to = None
         self.vote_cnt = 0
-        if not preserve_revote:
-            self.in_revote = False
+        self.in_revote = False
 
     @property
     def vote_info(self):
@@ -210,34 +209,24 @@ class Game:
                 ps = ps[:i]
                 break
 
+        # 清理本轮投票
+        for p in self.no_out_players:
+            p.clear_vote()
+
         # 只票出一人，正常结算
         if len(ps) == 1:
             p = ps[0]
             p.out = True
             info += f"{p} 出局"
-
-            # 清理本轮投票
-            for p in self.no_out_players:
-                p.clear_vote()
-
             return True, info
 
         # 平票
-        # 清除in_revote
-        for p in self.no_out_players:
-            p.in_revote = False
-        # 设置in_revote
         for p in ps:
             p.in_revote = True
 
         info += "平局\n"
         info += " ".join(str(p) for p in ps) + " 请发言申辩\n"
         info += "所有玩家可再次投票，投出其中一人"
-
-        # 清理本轮投票
-        for p in self.no_out_players:
-            p.clear_vote(preserve_revote=True)
-
         return False, info
 
     def check_end(self):
