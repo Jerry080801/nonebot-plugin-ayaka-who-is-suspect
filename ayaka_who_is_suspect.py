@@ -116,7 +116,7 @@ class Game:
     @property
     def vote_info(self):
         items = ["得票情况："]
-        items.extend(f"[{p.name}] {p.vote_cnt}" for p in self.players)
+        items.extend(f"[{p.name}] {p.vote_cnt}" for p in self.no_out_players)
         return "\n".join(items)
 
     @property
