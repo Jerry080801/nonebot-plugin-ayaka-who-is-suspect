@@ -36,7 +36,7 @@ app.help = {
     "play": play_help
 }
 
-words_list = app.plugin_storage("data", default=[["Test", "test"]]).load()
+words_list = app.plugin_storage("data.json", default=[["Test", "test"]]).load()
 
 
 class Player:
@@ -116,7 +116,7 @@ class Game:
     @property
     def vote_info(self):
         items = ["得票情况："]
-        items.extend(f"[{p.name}] {p.vote_cnt}" for p in self.no_out_players)
+        items.extend(f"[{p.num}] [{p.name}] {p.vote_cnt}" for p in self.no_out_players)
         return "\n".join(items)
 
     @property
@@ -145,11 +145,20 @@ class Game:
         self.players.remove(p)
         return True, f"{p} 离开房间"
 
+    def get_words(self):
+        normal, fake = choice(words_list)
+
+        # 有可能翻转
+        if randint(0, 1):
+            normal, fake = fake, normal
+
+        return normal, fake
+
     def start(self):
         if self.player_cnt < 4:
             return False, "至少需要4人才能开始游戏"
 
-        normal, fake = choice(words_list)
+        normal, fake = self.get_words()
 
         # 初始化状态
         for i, p in enumerate(self.players):
@@ -355,7 +364,7 @@ async def vote():
     arg = app.args[0]
 
     try:
-        num = int(arg)
+        num = int(str(arg))
     except:
         num = -1
 
