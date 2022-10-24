@@ -1,4 +1,4 @@
-# 谁是卧底 0.0.7
+# 谁是卧底
 
 基于ayaka开发的 谁是卧底 小游戏
 
@@ -30,6 +30,6 @@ nonebot.load_plugin("ayaka_who_is_suspect")
 
 ## 导入数据
 
-将本仓库的data文件夹，放到nonebot的工作目录下
+将本仓库的data文件夹（这是题库，可以自行修改，第一个是普通人，第二个是卧底词），放到nonebot的工作目录下
 
 之后运行nonebot即可

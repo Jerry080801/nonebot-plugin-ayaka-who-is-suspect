@@ -145,20 +145,11 @@ class Game:
         self.players.remove(p)
         return True, f"{p} 离开房间"
 
-    def get_words(self):
-        normal, fake = choice(words_list)
-
-        # 有可能翻转
-        if randint(0, 1):
-            normal, fake = fake, normal
-
-        return normal, fake
-
     def start(self):
         if self.player_cnt < 4:
             return False, "至少需要4人才能开始游戏"
 
-        normal, fake = self.get_words()
+        normal, fake = choice(words_list)
 
         # 初始化状态
         for i, p in enumerate(self.players):
