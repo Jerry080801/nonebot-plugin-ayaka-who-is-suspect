@@ -9,18 +9,11 @@
 
 # How to start
 
-## 安装 ayaka
-
-安装 [前置插件](https://github.com/bridgeL/nonebot-plugin-ayaka) 
-
-`poetry add nonebot-plugin-ayaka`
-
-
-## 安装 本插件
-
-安装 本插件
+## 安装插件
 
 `poetry add nonebot-plugin-ayaka-who-is-suspect`
+
+## 导入插件
 
 修改nonebot2  `bot.py` 
 
