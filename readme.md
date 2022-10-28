@@ -2,10 +2,10 @@
 
 基于ayaka开发的 谁是卧底 小游戏
 
-任何问题请发issue
+任何问题欢迎issue
 
-<b>注意：由于更新pypi的readme.md需要占用版本号，因此其readme.md可能不是最新的，强烈建议读者前往[github仓库](https://github.com/bridgeL/nonebot-plugin-ayaka-who-is-suspect)以获取最新版本的帮助</b>
-
+[仓库](https://github.com/bridgeL/nonebot-plugin-ayaka-who-is-suspect) - 
+[文档](https://bridgel.github.io/ayaka_doc/games/who-is-suspect)
 
 # How to start
 
@@ -29,6 +29,8 @@ nonebot.load_plugin("ayaka_who_is_suspect")
 
 # 指令
 
+https://bridgel.github.io/ayaka_doc/games/who-is-suspect
+
 *最近更新*
 
 ## 没有打开游戏应用时
@@ -36,7 +38,7 @@ nonebot.load_plugin("ayaka_who_is_suspect")
 指令|效果
 -|-
 help 谁是卧底 | 查看帮助
-谁是卧底 | 打开游戏应用，将创立一个游戏房间
+谁是卧底 | 打开游戏应用，将创建一个游戏房间
 
 ## 房间内
 
