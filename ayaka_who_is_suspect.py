@@ -167,6 +167,10 @@ class Game:
         if src.vote_to:
             return False, f"{src} 已经投票过了"
 
+        # 不能投给已出局的
+        if obj.out:
+            return False, f"{obj} 已经出局了"
+
         src.vote_to = obj
         obj.vote_cnt += 1
         return True, f"{src} 投票给了 {obj}"
@@ -245,7 +249,8 @@ async def get_uid(arg: MessageSegment):
         name = name[1:]
 
     for user in users:
-        if user["card"] == name:
+        _name = user["card"] or user["nickname"]
+        if _name == name:
             return user["user_id"]
 
 
