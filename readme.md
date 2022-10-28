@@ -1,6 +1,6 @@
 # 谁是卧底
 
-基于ayaka开发的 谁是卧底 小游戏
+基于[ayaka](https://github.com/bridgeL/nonebot-plugin-ayaka)开发的 谁是卧底 小游戏
 
 任何问题欢迎issue
 
