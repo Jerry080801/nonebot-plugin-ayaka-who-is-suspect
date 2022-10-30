@@ -167,6 +167,10 @@ class Game:
         if src.vote_to:
             return False, f"{src} 已经投票过了"
 
+        # 已出局的不能投票
+        if src.out:
+            return False, f"{src} 已经出局了"
+
         # 不能投给已出局的
         if obj.out:
             return False, f"{obj} 已经出局了"
