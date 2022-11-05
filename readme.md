@@ -18,4 +18,4 @@ nonebot.load_plugin("ayaka_who_is_suspect")
 
 ## 文档
 
-https://bridgel.github.io/ayaka_doc/0.4.2/games/who-is-suspect/
+https://bridgel.github.io/ayaka_doc/games/who-is-suspect/
