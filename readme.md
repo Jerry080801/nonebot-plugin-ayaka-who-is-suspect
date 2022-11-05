@@ -1,4 +1,4 @@
-# 谁是卧底 0.1.0
+# 谁是卧底 0.1.1
 
 基于[ayaka](https://github.com/bridgeL/nonebot-plugin-ayaka)开发的 谁是卧底 小游戏
 
@@ -18,4 +18,4 @@ nonebot.load_plugin("ayaka_who_is_suspect")
 
 ## 文档
 
-https://bridgel.github.io/ayaka_doc/games/who-is-suspect
+https://bridgel.github.io/ayaka_doc/games/0.4.2/who-is-suspect
