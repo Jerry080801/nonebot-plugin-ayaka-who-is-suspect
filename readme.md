@@ -6,15 +6,7 @@
 
 ## 安装插件
 
-`poetry add nonebot-plugin-ayaka-who-is-suspect`
-
-## 导入插件
-
-修改nonebot2  `bot.py` 
-
-```python
-nonebot.load_plugin("ayaka_who_is_suspect")
-```
+`nb plugin install nonebot-plugin-ayaka-who-is-suspect`
 
 ## 文档
 
