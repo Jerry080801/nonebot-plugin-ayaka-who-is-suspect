@@ -3,24 +3,18 @@
 '''
 from random import choice, randint
 from typing import List
-from ayaka import AyakaApp, MessageSegment
-from .utils import str_to_int, GroupUserFinder
+from ayaka import AyakaApp, AyakaCache
+from .data import config
+from .utils import UserInput, get_uid_name
 
 app = AyakaApp("谁是卧底")
-app.help = {
-    "init": '''
+app.help = '''
 至少4人游玩，游玩前请加bot好友，否则无法通过私聊告知关键词
 参与玩家的群名片不要重名，否则会产生非预期的错误=_=||
 卧底只有一个
-''',
-    "room": "房间已建立，正在等待玩家加入...",
-    "play": "游戏正在进行中..."
-}
+'''
 
-
-data = app.storage.plugin_path().file("data.txt", "TEST test").load()
-data = data.strip().split("\n")
-words_list = [d.split(" ", 1) for d in data]
+words_list = config.data
 
 
 class Player:
@@ -68,9 +62,8 @@ class Player:
         return f"[{self.name}] 未投"
 
 
-class Game:
-    def __init__(self) -> None:
-        self.players: List[Player] = []
+class Game(AyakaCache):
+    players: List[Player] = []
 
     @property
     def player_cnt(self):
@@ -133,9 +126,9 @@ class Game:
     def get_words(self):
         normal, fake = choice(words_list)
 
-        # 有可能翻转
-        if randint(0, 1):
-            normal, fake = fake, normal
+        # # 有可能翻转
+        # if randint(0, 1):
+        #     normal, fake = fake, normal
 
         return normal, fake
 
@@ -234,33 +227,6 @@ class Game:
         return "\n".join(items)
 
 
-async def get_uid(arg: MessageSegment):
-    users = await app.bot.get_group_member_list(group_id=app.group_id)
-
-    # at？
-    if arg.type == "at":
-        at = arg
-        try:
-            uid = int(at.data["qq"])
-        except:
-            return
-
-        for user in users:
-            if user["user_id"] == uid:
-                return user["user_id"]
-        return
-
-    # 名称？
-    name = str(arg)
-    if name.startswith("@"):
-        name = name[1:]
-
-    for user in users:
-        _name = user["card"] or user["nickname"]
-        if _name == name:
-            return user["user_id"]
-
-
 async def check_friend(uid: int):
     users = await app.bot.get_friend_list()
     for user in users:
@@ -270,17 +236,14 @@ async def check_friend(uid: int):
 
 @app.on.idle()
 @app.on.command("谁是卧底")
-async def app_entrance():
+async def app_entrance(game: Game):
     '''打开应用'''
-    if not await app.start():
-        return
-
+    await app.start()
     await app.send(app.help)
-    app.state = "room"
+    await app.goto("room")
     await app.send(app.help)
-
-    app.cache.game = Game()
-    await join()
+    game.players = []
+    await join(game)
 
 
 @app.on.state("room")
@@ -298,23 +261,21 @@ async def exit_play():
 
 @app.on.state("room")
 @app.on.command("join", "加入")
-async def join():
+async def join(game: Game):
     '''加入房间'''
     # 校验好友
     if not await check_friend(app.user_id):
         await app.send("只有bot的好友才可以加入房间，因为游戏需要私聊关键词")
         return
 
-    game: Game = app.cache.game
     f, info = game.join(app.user_id, app.user_name)
     await app.send(info)
 
 
 @app.on.state("room")
 @app.on.command("leave", "离开")
-async def leave():
+async def leave(game: Game):
     '''离开房间'''
-    game: Game = app.cache.game
     f, info = game.leave(app.user_id)
     await app.send(info)
 
@@ -324,9 +285,8 @@ async def leave():
 
 @app.on.state("room")
 @app.on.command("start", "begin", "开始")
-async def start():
+async def start(game: Game):
     '''开始游戏'''
-    game: Game = app.cache.game
     f, info = game.start()
     await app.send(info)
 
@@ -334,56 +294,31 @@ async def start():
     if not f:
         return
 
-    app.state = "play"
+    await app.goto("play")
     for p in game.players:
         await app.bot.send_private_msg(user_id=p.uid, message=p.word)
 
 
 @app.on.state("room")
 @app.on.command("info", "信息")
-async def room_info():
+async def room_info(game: Game):
     '''展示房间内成员列表'''
-    game: Game = app.cache.game
     await app.send(game.room_info)
 
 
 @app.on.state("play")
 @app.on.command("info", "信息")
-async def play_info():
+async def play_info(game: Game):
     '''展示投票情况'''
-    game: Game = app.cache.game
     await app.send(game.players_state)
     await app.send(game.vote_info)
 
 
 @app.on.state("play")
 @app.on.command("vote", "投票")
-async def vote():
+async def vote(data: UserInput, game: Game):
     '''请at你要投票的对象，一旦投票无法更改'''
-    game: Game = app.cache.game
-
-    # 验证参数
-    if not app.args:
-        await app.send("没有获取到有效参数")
-        return
-
-    num = str_to_int(str(app.args[0]))
-    if num is not None:
-        num -= 1
-        if num < 0 or num >= game.player_cnt:
-            await app.send("没有获取到有效参数")
-            return
-
-        uid = game.players[num].uid
-
-    else:
-        group_user_finder = GroupUserFinder(app.bot, app.group_id)
-        user = await group_user_finder.get_user_by_segment(app.args[0])
-        if not user:
-            await app.send("没有获取到有效参数")
-            return
-
-        uid = user["user_id"]
+    uid, name = await get_uid_name(app, data)
 
     # 投票
     f, info = game.vote(app.user_id, uid)
@@ -416,5 +351,5 @@ async def vote():
     await app.send(info)
 
     # 返回房间
-    app.state = "room"
+    await app.goto("room")
     await app.send("已回到房间，可发送start开始下一局")
